@@ -21,26 +21,35 @@ Gemini Prompt:
 The Master Project Prompt
 Project Name: Vibe Sorter AI (2026)
 Platform: Mobile App (Flutter/Material 3)
-Objective: A utility app that helps users sort music into existing Spotify playlists based on "vibe" (audio features like BPM, energy, and mood) rather than just genre.
+Backend: Supabase (Auth, Database, and Edge Functions)
+Objective: A utility app that helps users sort music into existing Spotify playlists based on "vibe" (BPM, energy, mood).
 
 Key Features to Reference:
 
-Input Methods: Manual song search via Spotify API and a "Share to App" feature to extract song titles from Instagram Reel URLs (handling multiple songs per Reel).
+Input Methods: Manual song search (Spotify API) and "Share to App" extraction from Instagram Reels (OCR/Audio Analysis).
 
-The Vibe Engine: A system that analyzes the user's existing playlists to create "Vibe Profiles" (Vector Embeddings) and compares new songs to these profiles to find the best match.
+The Vibe Engine: Uses Vector Embeddings (ChromaDB or Supabase Vector) to map user playlists and compare new songs to "Vibe Profiles."
 
-UI Flow: * Login Page: Spotify OAuth (Auth Code Flow with PKCE) and Refresh Token logic.
+UI Flow:
 
-Home/Search: A minimalist screen for searching or pasting links.
+    Login Page: Supabase Auth using the Spotify Provider.  
 
-Recommendation Card: A pop-up card that appears when a song is selected, showing a "Match %" for a specific playlist and a button to add it directly.
+    Home/Search: Minimalist search and link-pasting.
 
-Technology Stack (2026 Standards): * Frontend: Flutter (using dio, flutter_appauth, and receive_sharing_intent).
+    Recommendation Card: Overlay showing "Match %" and an "Add" button.
 
-AI Logic: Open-source models (Llama 3/4 Mini for logic, Essentia for audio analysis) and ChromaDB for local vector storage.
+Phase 2 Feature: Library Audit: Deep-scan tool to reorganize existing playlists.
 
-API: Spotify Web API (specifically handling the 2026 deprecation of legacy audio features).
+Technology Stack (2026 Standards):
 
-Constraint Note: Do not provide code blocks unless explicitly requested. Focus on architecture, logic flow, visual design descriptions, and technical strategy.
+    Frontend: Flutter (supabase_flutter package).
 
-Current Task: [INSERT SPECIFIC TASK HERE, e.g., "Helping me design the visual layout of the Recommendation Card"]
+    Auth Logic: Supabase handles OAuth and Session Refresh; the app retrieves the provider_token for Spotify API calls.
+
+    Database: Supabase PostgreSQL with explicit table grants (required for 2026 security compliance).  
+
+Constraint Note: Do not provide code blocks unless explicitly requested. Focus on architecture, logic flow, and technical strategy.
+
+Current Task: [INSERT SPECIFIC TASK HERE]
+
+
