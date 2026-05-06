@@ -1,0 +1,20 @@
+name: Auto PR and Merge
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+jobs:
+  automerge:
+    # Only runs if the PR is NOT a draft anymore
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --auto --merge --delete-branch
