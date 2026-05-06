@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/widgets/footer.dart';
 import 'package:vibelibe/services/spotify_service.dart';
+
 
 class Login extends StatelessWidget {
   Login({super.key});
@@ -26,6 +28,7 @@ class Login extends StatelessWidget {
             //  padding: EdgeInsetsGeometry.only(left: 20.0, right: 20.0, bottom: 20.0),
             child: ElevatedButton(
               onPressed: () async {
+                await Supabase.instance.client.auth.signOut();
                 await _spotifyService.signInWithSpotify();
               },
               style: ElevatedButton.styleFrom(
