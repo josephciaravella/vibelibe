@@ -53,3 +53,8 @@ app.*.map.json
 # Safety net for future secrets
 .env
 .env.*
+
+**/generated_plugin_registrant.cc
+**/generated_plugins.cmake
+**/generated_plugin_registrant.h
+**/GeneratedPluginRegistrant.*
