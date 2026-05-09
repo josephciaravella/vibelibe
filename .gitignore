@@ -57,5 +57,4 @@ app.*.map.json
 **/generated_plugin_registrant.cc
 **/generated_plugins.cmake
 **/generated_plugin_registrant.h
-**/GeneratedPluginRegistrant.java
-ios/Runner/GeneratedPluginRegistrant.*
+**/GeneratedPluginRegistrant.*
