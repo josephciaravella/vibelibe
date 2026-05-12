@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/widgets/footer.dart';
 import 'package:vibelibe/services/spotify_service.dart';
+import 'package:vibelibe/widgets/theme_toggle.dart';
 
 
 class Login extends StatelessWidget {
-  Login({super.key});
-  final _spotifyService = SpotifyService();
+  final Function(ThemeMode) onThemeChanged;
+  
+  const Login({super.key, required this.onThemeChanged});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: ThemeToggle(onThemeChanged: onThemeChanged),
+      ),
       body: Column(
         spacing: 32,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -29,7 +37,7 @@ class Login extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () async {
                 await Supabase.instance.client.auth.signOut();
-                await _spotifyService.signInWithSpotify();
+                await SpotifyService().signInWithSpotify();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
