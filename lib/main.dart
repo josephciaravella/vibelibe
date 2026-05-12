@@ -15,22 +15,37 @@ void main() async {
   runApp(VibeLibe());
 }
 
-class VibeLibe extends StatelessWidget {
+class VibeLibe extends StatefulWidget {
   const VibeLibe({super.key});
+
+  @override
+  State<VibeLibe> createState() => _VibeLibeState();
+}
+
+class _VibeLibeState extends State<VibeLibe> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  void toggleTheme(ThemeMode newMode) {
+    setState(() {
+      _themeMode = newMode;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: SolarizedTheme.lightTheme,
       darkTheme: SolarizedTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: AuthGateway(),
+      themeMode: _themeMode,
+      home: AuthGateway(onThemeChanged: toggleTheme),
     );
   }
 }
 
 class AuthGateway extends StatelessWidget {
-  const AuthGateway({super.key});
+  final Function(ThemeMode) onThemeChanged;
+
+  const AuthGateway({super.key, required this.onThemeChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +66,9 @@ class AuthGateway extends StatelessWidget {
         final session = snapshot.hasData ? snapshot.data!.session : null;
 
         if (session != null) {
-          return Analysis();
+          return Analysis(onThemeChanged: onThemeChanged);
         } else {
-          return Login();
+          return Login(onThemeChanged: onThemeChanged);
         }
       },
     );
