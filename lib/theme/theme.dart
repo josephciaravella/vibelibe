@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SolarizedTheme {
   // 1. Define the raw Solarized palette as private constants
@@ -38,10 +39,12 @@ class SolarizedTheme {
         tertiary: _magenta,
       ),
       // Set global text styles to use Solarized text colors
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: _base00),
-        bodyMedium: TextStyle(color: _base00),
-        labelSmall: TextStyle(color: _base1), // For your footer!
+      textTheme: GoogleFonts.montserratTextTheme( 
+        const TextTheme(
+          bodyLarge: TextStyle(color: _base00),
+          bodyMedium: TextStyle(color: _base00),
+          labelSmall: TextStyle(color: _base1), // For your footer!
+        )
       ),
     );
   }
@@ -61,10 +64,12 @@ class SolarizedTheme {
         error: _red,
         tertiary: _violet,
       ),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: _base0),
-        bodyMedium: TextStyle(color: _base0),
-        labelSmall: TextStyle(color: _base01),
+      textTheme: GoogleFonts.outfitTextTheme(
+          const TextTheme(
+          bodyLarge: TextStyle(color: _base0),
+          bodyMedium: TextStyle(color: _base0),
+          labelSmall: TextStyle(color: _base01),
+        )
       ),
     );
   }
