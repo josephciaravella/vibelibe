@@ -39,7 +39,7 @@ class SolarizedTheme {
         tertiary: _magenta,
       ),
       // Set global text styles to use Solarized text colors
-      textTheme: GoogleFonts.montserratTextTheme( 
+      textTheme: GoogleFonts.interTextTheme( 
         const TextTheme(
           bodyLarge: TextStyle(color: _base00),
           bodyMedium: TextStyle(color: _base00),
@@ -64,7 +64,7 @@ class SolarizedTheme {
         error: _red,
         tertiary: _violet,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(
+      textTheme: GoogleFonts.interTextTheme(
           const TextTheme(
           bodyLarge: TextStyle(color: _base0),
           bodyMedium: TextStyle(color: _base0),
