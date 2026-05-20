@@ -47,7 +47,11 @@ class _AnalysisState extends State<Analysis> with SingleTickerProviderStateMixin
     });
 
     try {
-      await VibeService.analyzeSong(query);
+      if (Supabase.instance.client.auth.currentUser != null) {
+        final res = await Supabase.instance.client.functions.invoke('search-spotify', body: {'song_name': query});
+        final data = res.data;
+        print(data);
+      }
     } finally {
       if (mounted) {
         setState(() {
