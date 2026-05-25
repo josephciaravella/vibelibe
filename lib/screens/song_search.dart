@@ -1,20 +1,22 @@
 import 'dart:ui';
 import 'dart:math' as math;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/widgets/theme_toggle.dart';
-import '../services/vibe_service.dart';
+import 'package:vibelibe/widgets/search_results_sheet.dart';
+import 'package:vibelibe/screens/vibe_analysis.dart';
 
-class Analysis extends StatefulWidget {
+class SongSearch extends StatefulWidget {
   final Function(ThemeMode) onThemeChanged;
 
-  const Analysis({super.key, required this.onThemeChanged});
+  const SongSearch({super.key, required this.onThemeChanged});
 
   @override
-  State<Analysis> createState() => _AnalysisState();
+  State<SongSearch> createState() => _SongSearchState();
 }
 
-class _AnalysisState extends State<Analysis> with SingleTickerProviderStateMixin {
+class _SongSearchState extends State<SongSearch> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isSearching = false;
@@ -50,7 +52,37 @@ class _AnalysisState extends State<Analysis> with SingleTickerProviderStateMixin
       if (Supabase.instance.client.auth.currentUser != null) {
         final res = await Supabase.instance.client.functions.invoke('search-spotify', body: {'song_name': query});
         final data = res.data;
-        print(data);
+        
+        Map<dynamic, dynamic>? responseMap;
+        if (data is Map) {
+          responseMap = data;
+        } else if (data is String) {
+          try {
+            responseMap = json.decode(data) as Map<dynamic, dynamic>;
+          } catch (e) {
+            print("Error decoding search response: $e");
+          }
+        }
+
+        if (responseMap != null && responseMap['tracks'] != null && responseMap['tracks']['items'] != null) {
+          final List<dynamic> trackList = responseMap['tracks']['items'];
+          if (mounted) {
+            _showSearchResults(trackList);
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No tracks found for your search query.')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print("Search failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Search error: $e')),
+        );
       }
     } finally {
       if (mounted) {
@@ -60,6 +92,38 @@ class _AnalysisState extends State<Analysis> with SingleTickerProviderStateMixin
         _searchController.clear();
       }
     }
+  }
+
+  void _showSearchResults(List<dynamic> tracks) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (BuildContext context) {
+        return FractionallySizedBox(
+          heightFactor: 0.75,
+          child: SearchResultsSheet(
+            tracks: tracks,
+            onTrackTap: (track) {
+              // Close the bottom sheet
+              Navigator.pop(context);
+              
+              // Navigate to the vibe analysis page
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VibeAnalysis(
+                    track: track,
+                    onThemeChanged: widget.onThemeChanged,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override

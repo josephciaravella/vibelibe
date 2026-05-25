@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:vibelibe/screens/analysis.dart';
+import 'package:vibelibe/screens/song_search.dart';
 import 'package:vibelibe/screens/login.dart';
 import 'package:vibelibe/theme/theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -113,7 +113,7 @@ class _AuthGatewayState extends State<AuthGateway> {
     }
 
     if (_session != null) {
-      return Analysis(onThemeChanged: widget.onThemeChanged);
+      return SongSearch(onThemeChanged: widget.onThemeChanged);
     } else {
       return Login(onThemeChanged: widget.onThemeChanged);
     }
