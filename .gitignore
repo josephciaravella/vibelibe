@@ -58,3 +58,4 @@ app.*.map.json
 **/generated_plugins.cmake
 **/generated_plugin_registrant.h
 **/GeneratedPluginRegistrant.*
+**/test.json
