@@ -8,8 +8,9 @@ class SpotifyService {
   Future<void> signInWithSpotify() async {
     await _supabase.auth.signInWithOAuth(
       OAuthProvider.spotify,
-      // Matches your AndroidManifest.xml: android:scheme="my.vibelibe.app" android:host="auth"
       redirectTo: kIsWeb ? null : 'my.vibelibe.app://callback', 
+      scopes: 'playlist-read-private playlist-read-collaborative',
+      queryParams: {'show_dialog': 'true'},
       authScreenLaunchMode: kIsWeb 
           ? LaunchMode.platformDefault 
           : LaunchMode.externalApplication,
