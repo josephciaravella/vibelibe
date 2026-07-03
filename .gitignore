@@ -59,3 +59,4 @@ app.*.map.json
 **/generated_plugin_registrant.h
 **/GeneratedPluginRegistrant.*
 **/test.json
+**/index.ts
