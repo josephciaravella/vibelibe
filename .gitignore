@@ -60,3 +60,4 @@ app.*.map.json
 **/GeneratedPluginRegistrant.*
 **/test.json
 **/index.ts
+**/index2.ts
