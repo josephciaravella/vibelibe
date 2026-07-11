@@ -208,6 +208,8 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
             ];
           }
 
+          final double analyzedPct = trackIds.isNotEmpty ? (validCount / trackIds.length) * 100.0 : 0.0;
+          print("Playlist '$playlistName': Analyzed $validCount of ${trackIds.length} tracks (${analyzedPct.toStringAsFixed(1)}% analyzed, ${trackIds.length - validCount} skipped).");
           print("Upserting vibe for playlist $playlistName: $playlistCentroid");
           await Supabase.instance.client
               .from('playlist_vibes')

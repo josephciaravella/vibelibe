@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/widgets/theme_toggle.dart';
@@ -48,24 +49,38 @@ class _SongSearchState extends State<SongSearch> with SingleTickerProviderStateM
       _isSearching = true;
     });
 
+    final client = HttpClient();
     try {
-      if (Supabase.instance.client.auth.currentUser != null) {
-        final res = await Supabase.instance.client.functions.invoke('search-spotify', body: {'song_name': query});
-        final data = res.data;
+      final encodedQuery = Uri.encodeComponent(query);
+      final url = 'https://api.deezer.com/search?q=$encodedQuery';
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      
+      if (response.statusCode == 200) {
+        final bytes = await response.fold<List<int>>([], (prev, elem) => prev..addAll(elem));
+        final body = utf8.decode(bytes);
+        final parsed = json.decode(body) as Map<String, dynamic>;
+        final List<dynamic> dataList = parsed['data'] ?? [];
         
-        Map<dynamic, dynamic>? responseMap;
-        if (data is Map) {
-          responseMap = data;
-        } else if (data is String) {
-          try {
-            responseMap = json.decode(data) as Map<dynamic, dynamic>;
-          } catch (e) {
-            print("Error decoding search response: $e");
-          }
-        }
+        // Map Deezer items to Spotify track object format
+        final List<Map<String, dynamic>> trackList = dataList.map((item) {
+          final artistName = item['artist']?['name'] ?? 'Unknown Artist';
+          final albumTitle = item['album']?['title'] ?? 'Unknown Album';
+          final coverUrl = item['album']?['cover_medium'] ?? '';
+          
+          return {
+            'id': 'deezer_${item['id']}',
+            'name': item['title'] ?? 'Unknown Track',
+            'artists': [{'name': artistName}],
+            'album': {
+              'name': albumTitle,
+              'images': coverUrl.isNotEmpty ? [{'url': coverUrl}] : [],
+            },
+            'preview_url': item['preview'] ?? '',
+          };
+        }).toList();
 
-        if (responseMap != null && responseMap['tracks'] != null && responseMap['tracks']['items'] != null) {
-          final List<dynamic> trackList = responseMap['tracks']['items'];
+        if (trackList.isNotEmpty) {
           if (mounted) {
             _showSearchResults(trackList);
           }
@@ -76,6 +91,8 @@ class _SongSearchState extends State<SongSearch> with SingleTickerProviderStateM
             );
           }
         }
+      } else {
+        throw Exception("Server returned status ${response.statusCode}");
       }
     } catch (e) {
       print("Search failed: $e");
@@ -85,6 +102,7 @@ class _SongSearchState extends State<SongSearch> with SingleTickerProviderStateM
         );
       }
     } finally {
+      client.close();
       if (mounted) {
         setState(() {
           _isSearching = false;
