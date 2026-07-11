@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/services/vibe_service.dart';
+import 'package:vibelibe/services/spotify_service.dart';
 import 'package:vibelibe/widgets/theme_toggle.dart';
 import 'package:vibelibe/widgets/track_tile.dart';
 import 'package:vibelibe/widgets/playlist_match_tile.dart';
@@ -259,6 +261,14 @@ class _VibeAnalysisState extends State<VibeAnalysis> with SingleTickerProviderSt
             ),
           ],
         ),
+        const SizedBox(height: 4),
+        Text(
+          "Tap a playlist to add this song",
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
         const SizedBox(height: 12),
         
         // Match list
@@ -279,7 +289,10 @@ class _VibeAnalysisState extends State<VibeAnalysis> with SingleTickerProviderSt
                   separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final pl = _matchingPlaylists[index];
-                    return PlaylistMatchTile(playlist: pl);
+                    return PlaylistMatchTile(
+                      playlist: pl,
+                      onTap: () => _confirmAddSongToPlaylist(pl),
+                    );
                   },
                 ),
         ),
@@ -331,5 +344,113 @@ class _VibeAnalysisState extends State<VibeAnalysis> with SingleTickerProviderSt
         }),
       ),
     );
+  }
+
+  Future<void> _confirmAddSongToPlaylist(Map<String, dynamic> playlist) async {
+    final trackName = widget.track['name'] ?? 'Unknown Track';
+    final playlistName = playlist['name'] ?? 'Playlist';
+
+    final List<dynamic> artistsList = widget.track['artists'] ?? [];
+    final String artistName = artistsList.isNotEmpty
+        ? artistsList.map((a) => a['name'] ?? 'Unknown Artist').join(', ')
+        : 'Unknown Artist';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Song to Playlist'),
+        content: Text("Do you want to add '$trackName' to '$playlistName'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+
+    // Show loading indicator dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Adding track to Spotify playlist...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final spotifyService = SpotifyService();
+      await spotifyService.addTrackToPlaylist(
+        playlistId: playlist['id'] ?? '',
+        trackId: widget.track['id'] ?? '',
+        trackTitle: trackName,
+        artistName: artistName,
+      );
+
+      if (mounted) {
+        // Pop loading dialog
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Successfully added '$trackName' to '$playlistName'!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Pop loading dialog
+        Navigator.pop(context);
+
+        final errorStr = e.toString();
+        // Check for common permission or token issues
+        final bool isPermissionError = errorStr.contains('403') || errorStr.contains('Forbidden');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isPermissionError 
+                  ? "Permission error. Please log out and back in to authorize playlist modification." 
+                  : "Failed to add song: ${errorStr.replaceAll('Exception: ', '')}"
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: Duration(seconds: isPermissionError ? 6 : 4),
+            action: isPermissionError 
+                ? SnackBarAction(
+                    label: "Logout",
+                    textColor: Colors.white,
+                    onPressed: () async {
+                      await Supabase.instance.client.auth.signOut();
+                      if (mounted) {
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
+                    },
+                  )
+                : null,
+          ),
+        );
+      }
+    }
   }
 }
