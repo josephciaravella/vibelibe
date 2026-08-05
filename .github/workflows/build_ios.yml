@@ -1,0 +1,46 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      # 1. Check out the source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up the Flutter environment
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 3. Install packages / dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 4. Build the iOS archive without code signing
+      - name: Build iOS Archive (Unsigned)
+        run: flutter build ipa --no-codesign
+
+      # 5. Package the .app into an unsigned .ipa
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
+          zip -r app-release-unsigned.ipa Payload
+
+      # 6. Upload the finished .ipa file as a downloadable build artifact
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: app-release-unsigned.ipa
+          retention-days: 7
