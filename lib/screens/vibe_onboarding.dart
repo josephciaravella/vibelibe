@@ -8,11 +8,13 @@ import 'package:vibelibe/widgets/theme_toggle.dart';
 class VibeOnboarding extends StatefulWidget {
   final Function(ThemeMode) onThemeChanged;
   final VoidCallback onComplete;
+  final bool isManualSync;
 
   const VibeOnboarding({
     super.key,
     required this.onThemeChanged,
     required this.onComplete,
+    this.isManualSync = false,
   });
 
   @override
@@ -63,7 +65,9 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
     setState(() {
       _hasError = false;
       _errorMessage = "";
-      _statusMessage = "Contacting Spotify & loading playlist sync state...";
+      _statusMessage = widget.isManualSync 
+        ? "Connecting to Spotify & checking for new playlists..."
+        : "Contacting Spotify & loading playlist sync state...";
     });
 
     try {
@@ -73,71 +77,95 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
       }
       final userId = user.id;
 
-      print("Invoking get-uncached-tracks Edge Function...");
-      final response = await Supabase.instance.client.functions.invoke('get-uncached-tracks');
-      print("Edge Function response status: ${response.status}");
-      print("Edge Function response data: ${response.data}");
-      
-      if (response.status != 200) {
-        throw Exception("Server returned status ${response.status}");
-      }
+      bool inSync = false;
+      int processedCount = 0;
+      int totalPlaylists = 0;
+      bool isFirstBatch = true;
 
-      final data = response.data;
-      if (data == null) {
-        throw Exception("No data received from Edge Function");
-      }
+      while (!inSync) {
+        print("Invoking get-uncached-tracks Edge Function...");
+        final response = await Supabase.instance.client.functions.invoke('get-uncached-tracks');
+        print("Edge Function response status: ${response.status}");
+        
+        if (response.status != 200) {
+          throw Exception("Server returned status ${response.status}");
+        }
 
-      final String status = data['status'] ?? 'in_sync';
-      
-      if (status == 'needs_sync') {
+        final data = response.data;
+        if (data == null) {
+          throw Exception("No data received from Edge Function");
+        }
+
+        final String status = data['status'] ?? 'in_sync';
+        
+        if (status == 'in_sync') {
+          inSync = true;
+          break;
+        }
+        
         _statusTimer?.cancel(); // Stop cycling generic messages
 
         final List<dynamic> playlists = data['playlists'] ?? [];
         final List<dynamic> uncachedTracks = data['uncached_tracks'] ?? [];
         
+        if (isFirstBatch) {
+          final int totalRemaining = data['total_remaining'] ?? playlists.length;
+          totalPlaylists = processedCount + totalRemaining;
+          isFirstBatch = false;
+        }
+        
         final int totalTracks = uncachedTracks.length;
-        print("Need to analyze $totalTracks uncached tracks...");
+        print("Need to analyze $totalTracks uncached tracks for this batch...");
+        
+        final Map<String, dynamic> uncachedTrackMap = {
+          for (var t in uncachedTracks) t['id']: t
+        };
+        final Set<String> analyzedInBatch = {};
 
-        // 1. Process uncached tracks sequentially
-        for (int i = 0; i < totalTracks; i++) {
-          final track = uncachedTracks[i];
-          final String trackId = track['id'] ?? '';
-          final String title = track['title'] ?? 'Unknown';
-          final String artistName = track['artist'] ?? 'Unknown';
-          final String? previewUrl = track['preview_url'];
+        // 1. Process uncached tracks playlist-by-playlist for accurate UI
+        for (int pIdx = 0; pIdx < playlists.length; pIdx++) {
+          final p = playlists[pIdx];
+          final String playlistName = p['name'] ?? 'Playlist';
+          final List<dynamic> trackIds = p['track_ids'] ?? [];
+          final int playlistTotalTracks = trackIds.length;
+          
+          for (int tIdx = 0; tIdx < playlistTotalTracks; tIdx++) {
+            final String tid = trackIds[tIdx].toString();
+            
+            if (uncachedTrackMap.containsKey(tid) && !analyzedInBatch.contains(tid)) {
+              final track = uncachedTrackMap[tid];
+              final String title = track['title'] ?? 'Unknown';
+              final String artistName = track['artist'] ?? 'Unknown';
+              final String? previewUrl = track['preview_url'];
 
-          if (trackId.isEmpty) continue;
+              setState(() {
+                _statusMessage = "Syncing '$playlistName' (${processedCount + pIdx + 1} of $totalPlaylists)...\nAnalyzing missing track ${tIdx + 1} of $playlistTotalTracks:\n$title\nby $artistName";
+              });
 
-          setState(() {
-            _statusMessage = "Analyzing track ${i + 1} of $totalTracks:\n$title\nby $artistName";
-          });
+              List<double>? vibeVector;
+              if (previewUrl != null && previewUrl.isNotEmpty) {
+                try {
+                  vibeVector = await VibeAnalyzer.analyzePreview(previewUrl);
+                } catch (e) {
+                  print("Failed to analyze track $tid: $e");
+                }
+              }
 
-          List<double>? vibeVector;
-          if (previewUrl != null && previewUrl.isNotEmpty) {
-            try {
-              vibeVector = await VibeAnalyzer.analyzePreview(previewUrl);
-            } catch (e) {
-              print("Failed to analyze track $trackId: $e");
+              await Supabase.instance.client
+                  .from('track_cache')
+                  .upsert({
+                    'id': tid,
+                    'title': title,
+                    'artist_name': artistName,
+                    'vibe_vector': vibeVector,
+                  });
+              
+              analyzedInBatch.add(tid);
             }
           }
-
-          // Write result to track_cache using artist_name (vibeVector can be null)
-          await Supabase.instance.client
-              .from('track_cache')
-              .upsert({
-                'id': trackId,
-                'title': title,
-                'artist_name': artistName,
-                'vibe_vector': vibeVector,
-              });
         }
 
-        // 2. Aggregate average vibe vectors for each playlist
-        setState(() {
-          _statusMessage = "Calculating playlist centroids...";
-        });
-
-        // Collect all unique track IDs from all playlists to fetch cache in one batch
+        // Collect all unique track IDs from this batch's playlists
         final Set<String> allTrackIds = {};
         for (final p in playlists) {
           final List<dynamic> trackIds = p['track_ids'] ?? [];
@@ -146,11 +174,9 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
           }
         }
 
-        print("Fetching cached vectors for ${allTrackIds.length} tracks...");
         final List<String> allTrackIdList = allTrackIds.toList();
         final Map<String, List<double>?> vectorMap = {};
 
-        // Fetch in batches of 500
         const int batchSize = 500;
         for (int i = 0; i < allTrackIdList.length; i += batchSize) {
           final chunk = allTrackIdList.sublist(i, math.min(i + batchSize, allTrackIdList.length));
@@ -168,15 +194,16 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
           }
         }
 
-        // Now calculate centroid and upsert for each playlist
-        for (final p in playlists) {
+        // 3. Calculate centroid and upsert for each playlist
+        for (int pIdx = 0; pIdx < playlists.length; pIdx++) {
+          final p = playlists[pIdx];
           final String playlistId = p['id'] ?? '';
           final String playlistName = p['name'] ?? 'Playlist';
           final String snapshotId = p['snapshot_id'] ?? '';
           final List<dynamic> trackIds = p['track_ids'] ?? [];
 
           setState(() {
-            _statusMessage = "Calibrating vibes for:\n$playlistName";
+            _statusMessage = "Syncing '$playlistName' (${processedCount + pIdx + 1} of $totalPlaylists)...\nCalibrating playlist vibe...";
           });
 
           double sumValence = 0.0;
@@ -208,9 +235,6 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
             ];
           }
 
-          final double analyzedPct = trackIds.isNotEmpty ? (validCount / trackIds.length) * 100.0 : 0.0;
-          print("Playlist '$playlistName': Analyzed $validCount of ${trackIds.length} tracks (${analyzedPct.toStringAsFixed(1)}% analyzed, ${trackIds.length - validCount} skipped).");
-          print("Upserting vibe for playlist $playlistName: $playlistCentroid");
           await Supabase.instance.client
               .from('playlist_vibes')
               .upsert({
@@ -221,18 +245,24 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
                 'track_count': trackIds.length,
               });
         }
+        
+        processedCount += playlists.length;
       }
 
       _statusTimer?.cancel();
       setState(() {
-        _statusMessage = "Onboarding completed successfully!";
+        _statusMessage = widget.isManualSync 
+          ? "Sync completed successfully!"
+          : "Onboarding completed successfully!";
       });
 
       if (mounted) {
+        // Small delay so user can see "completed" message
+        await Future.delayed(const Duration(seconds: 1));
         widget.onComplete();
       }
     } catch (e) {
-      print("Vibe onboarding failed: $e");
+      print("Vibe sync failed: $e");
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -334,13 +364,14 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    "This only takes a moment on your first visit.",
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  if (!widget.isManualSync)
+                    Text(
+                      "This only takes a moment on your first visit.",
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                     ),
-                  ),
                 ] else ...[
                   // Error card
                   Container(
@@ -361,7 +392,7 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          "Onboarding Failed",
+                          widget.isManualSync ? "Sync Failed" : "Onboarding Failed",
                           style: textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.error,
