@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibelibe/widgets/theme_toggle.dart';
 import 'package:vibelibe/widgets/search_results_sheet.dart';
 import 'package:vibelibe/screens/vibe_analysis.dart';
+import 'package:vibelibe/screens/vibe_onboarding.dart';
 
 class SongSearch extends StatefulWidget {
   final Function(ThemeMode) onThemeChanged;
@@ -191,6 +192,45 @@ class _SongSearchState extends State<SongSearch> with SingleTickerProviderStateM
                   child: _isSearching
                       ? CircularProgressIndicator(color: colorScheme.primary)
                       : _buildIdleState(colorScheme),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VibeOnboarding(
+                            onThemeChanged: widget.onThemeChanged,
+                            isManualSync: true,
+                            onComplete: () {
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.sync_rounded),
+                    label: const Text(
+                      "Sync New Playlists",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.surface.withValues(alpha: 0.6),
+                      foregroundColor: colorScheme.onSurface,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.2),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
