@@ -104,59 +104,38 @@ class VibeService {
       throw Exception("Acoustic preview is unavailable for this track.\nWe cannot perform direct vibe analysis.");
     }
 
-    // 3. Sync playlists from Spotify via Edge Function
-    final syncResponse = await Supabase.instance.client.functions.invoke('get-uncached-tracks');
-    if (syncResponse.status != 200) {
-      throw Exception("Failed to sync Spotify playlists.");
-    }
-
-    final data = syncResponse.data;
-    if (data == null) {
-      throw Exception("Invalid sync response");
-    }
-
-    final List<dynamic> playlists = data['playlists'] ?? [];
-
-    // 4. Fetch playlist centroids from database
+    // 3. Fetch playlist centroids and metadata directly from the database!
+    // This is instant and completely bypasses the heavy Edge Function.
     final vibesResponse = await Supabase.instance.client
         .from('playlist_vibes')
-        .select('id, vibe_vector, track_count')
+        .select('id, name, image_url, vibe_vector, track_count')
         .eq('user_id', currentUserId);
 
-    final Map<String, List<double>> playlistVectors = {};
+    final List<Map<String, dynamic>> matches = [];
+    
     for (final row in vibesResponse) {
       final String pid = row['id'] ?? '';
+      final String pName = row['name'] ?? 'Playlist';
+      final String? imageUrl = row['image_url'];
+      final int trackCount = row['track_count'] ?? 0;
+      
       final rawVector = row['vibe_vector'];
       final vec = parseVector(rawVector);
+      
       if (pid.isNotEmpty && vec != null && vec.length == 4) {
-        playlistVectors[pid] = vec;
-      }
-    }
-
-    // 5. Calculate similarities
-    final List<Map<String, dynamic>> matches = [];
-    for (final p in playlists) {
-      final String pid = p['id'] ?? '';
-      final String pName = p['name'] ?? 'Playlist';
-      final List<dynamic> images = p['images'] ?? [];
-      final String? imageUrl = images.isNotEmpty ? images[0]['url'] : null;
-      final int trackCount = p['track_count'] ?? (p['track_ids'] as List?)?.length ?? 0;
-
-      if (playlistVectors.containsKey(pid)) {
-        final plVec = playlistVectors[pid]!;
-        final distance = calculateDistance(trackVector, plVec);
+        final distance = calculateDistance(trackVector, vec);
         final similarity = (1.0 - (distance / 2.0)) * 100.0;
         matches.add({
           'id': pid,
           'name': pName,
-          'imageUrl': imageUrl,
-          'track_count': trackCount,
+          'image_url': imageUrl,
           'similarity': similarity.clamp(0.0, 100.0),
+          'track_count': trackCount,
         });
       }
     }
 
-    // Sort descending by similarity
+    // 4. Sort matches by similarity (highest first)
     matches.sort((a, b) => (b['similarity'] as double).compareTo(a['similarity'] as double));
 
     return VibeMatchResult(
