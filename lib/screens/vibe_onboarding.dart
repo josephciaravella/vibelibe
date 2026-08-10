@@ -84,11 +84,34 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
 
       while (!inSync) {
         print("Invoking get-uncached-tracks Edge Function...");
-        final response = await Supabase.instance.client.functions.invoke('get-uncached-tracks');
-        print("Edge Function response status: ${response.status}");
         
-        if (response.status != 200) {
-          throw Exception("Server returned status ${response.status}");
+        FunctionResponse? response;
+        int retryCount = 0;
+        
+        while (retryCount < 3) {
+          try {
+            response = await Supabase.instance.client.functions.invoke('get-uncached-tracks');
+            if (response.status == 200) {
+              break;
+            } else if (response.status == 546 || (response.status != null && response.status! >= 500)) {
+               retryCount++;
+               if (retryCount >= 3) throw Exception("Server returned status ${response.status} after 3 retries");
+               print("Edge function hit status ${response.status}. Retrying in 2 seconds...");
+               await Future.delayed(const Duration(seconds: 2));
+            } else {
+               throw Exception("Server returned status ${response.status}");
+            }
+          } catch (e) {
+            // FunctionException is thrown for network errors or some server errors
+            retryCount++;
+            if (retryCount >= 3) rethrow;
+            print("Edge function error: $e. Retrying in 2 seconds...");
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        }
+        
+        if (response == null) {
+           throw Exception("Failed to invoke Edge Function");
         }
 
         final data = response.data;
@@ -235,11 +258,16 @@ class _VibeOnboardingState extends State<VibeOnboarding> with SingleTickerProvid
             ];
           }
 
+          final List<dynamic> images = p['images'] ?? [];
+          final String? imageUrl = images.isNotEmpty ? images[0]['url'] : null;
+
           await Supabase.instance.client
               .from('playlist_vibes')
               .upsert({
                 'id': playlistId,
                 'snapshot_id': snapshotId,
+                'name': playlistName,
+                'image_url': imageUrl,
                 'vibe_vector': playlistCentroid,
                 'user_id': userId,
                 'track_count': trackIds.length,
