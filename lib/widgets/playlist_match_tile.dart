@@ -17,7 +17,7 @@ class PlaylistMatchTile extends StatelessWidget {
 
     final String title = playlist['name'] ?? 'Playlist';
     final int trackCount = playlist['track_count'] ?? 0;
-    final String? imageUrl = playlist['imageUrl'];
+    final String? imageUrl = playlist['image_url'];
     final double similarity = playlist['similarity'] ?? 0.0;
 
     // Build the leading image widget
