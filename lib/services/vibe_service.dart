@@ -140,7 +140,7 @@ class VibeService {
 
     return VibeMatchResult(
       trackVector: trackVector,
-      matchingPlaylists: matches.take(10).toList(),
+      matchingPlaylists: matches.toList(),
     );
   }
 }
