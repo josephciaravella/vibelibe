@@ -1,4 +1,4 @@
-# Vibe Sorter AI
+# vibelibe
 
 A Flutter mobile application that helps users sort music into existing Spotify playlists based on "vibe" (BPM, energy, mood).
 
